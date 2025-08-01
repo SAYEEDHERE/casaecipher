@@ -306,41 +306,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
 
-            <!-- Cipherverse App Ka Flowchart (Hinglish Version) -->
-            <!-- Yeh raha aapke Cipherverse app ka poora flow, ek dum aasan bhasha mein. -->
-
-            <!-- ### 1. App Ki Shuruat (Start-up) -->
-            <!-- * Jaise hi web page poori tarah se load hota hai, app shuru ho jaati hai. -->
-            <!-- * Sabse pehle, `init()` function chalti hai. -->
-            <!-- * Yeh function app ki shuruati settings (default theme, default cipher) set karti hai aur background ka starfield animation chalu karti hai. -->
-
-            <!-- ### 2. App Ka Memory Box (Data Store) -->
-            <!-- * Code mein ek `state` object hai, jo app ka saara data yaad rakhta hai. -->
-            <!-- * Isme yeh sab store hota hai: -->
-            <!--     * Current **theme** (`darkMatter`, `neoRetro`, etc.) -->
-            <!--     * Current **mode** (`cipher` ya `challenge`) -->
-            <!--     * Kaunsa **cipher** chuna gaya hai (`caesar`, `vigenere`, etc.) -->
-            <!--     * User ka **score** aur **XP** (experience points) -->
-            <!--     * Challenge mode ka **timer** aur **hint** ki status. -->
-
-            <!-- ### 3. User Ke Actions (Event Listeners) -->
-            <!-- * Har button ya input pe ek event listener laga hai, jo user ke click ya input ka intezar karta hai. -->
-            <!-- * **Theme Buttons Par Click:** `updateUIForTheme()` function chalti hai aur app ka poora look change ho jaata hai. -->
-            <!-- * **Mode Buttons Par Click:** `cipher-panel` ya `challenge-panel` ko dikhaata/chupaata hai. Agar Challenge mode select kiya, toh `startChallenge()` function chalti hai. -->
-            <!-- * **Cipher Buttons Par Click:** `updateUIForCipher()` function chalti hai aur us cipher ke controls (jaise Caesar ka slider) dikhaata hai. -->
-            <!-- * **Encrypt/Decrypt Par Click:** `applyCipher()` function chalti hai. Yeh `state` se current cipher aur uski settings ko uthaakar input text ko encrypt ya decrypt karti hai. -->
-
-            <!-- ### 4. Challenge Mode Ka Khel (Game Logic) -->
-            <!-- * **Challenge Mode Start Hone Par:** `startChallenge()` function chalegi. Yeh timer ko 60 seconds par set karti hai, ek random encrypted message banati hai, aur timer chalu kar deti hai. -->
-            <!-- * **Hint Button Par Click:** Score se 10 points cut hote hain aur ek hint dikhaayi jaati hai. -->
-            <!-- * **Submit Button Par Click:** Timer ruk jaata hai. User ka answer check hota hai. Agar sahi hai, toh score aur XP badh jaate hain; agar galat hai, toh ek message aata hai. -->
-            <!-- * **Timer Zero Hone Par:** Challenge fail ho jaata hai. -->
-            <!-- * **Restart Button Par Click:** `startChallenge()` function dobara chalti hai, aur naya game shuru hota hai. -->
-
-            <!-- ### 5. Final Result -->
-            <!-- * Encryption/Decryption ka final result `ciphertext-output` textarea mein dikhaai deta hai. -->
-            <!-- * Challenge mode mein, feedback `challenge-feedback` div mein aata hai. -->
-
+            
             // --- State Management ---
             let state = {
                 currentTheme: 'darkMatter',
