@@ -1,0 +1,860 @@
+<!-- ### 1. App Ki Shuruat (Start-up) -->
+
+<!-- * Jaise hi web page poori tarah se load hota hai, app shuru ho jaati hai. -->
+
+<!-- * Sabse pehle, init() function chalti hai. -->
+
+<!-- * Yeh function app ki shuruati settings (default theme, default cipher) set karti hai aur background ka starfield animation chalu karti hai. -->
+
+<!-- ### 2. App Ka Memory Box (Data Store) -->
+
+<!-- * Code mein ek state object hai, jo app ka saara data yaad rakhta hai. -->
+
+<!-- * Isme yeh sab store hota hai: -->
+
+<!--     * Current theme (darkMatter, neoRetro, etc.) -->
+
+<!--     * Current mode (cipher ya challenge) -->
+
+<!--     * Kaunsa cipher chuna gaya hai (caesar, vigenere, etc.) -->
+
+<!--     * User ka score aur XP (experience points) -->
+
+<!--     * Challenge mode ka timer aur hint ki status. -->
+
+<!-- ### 3. User Ke Actions (Event Listeners) -->
+
+<!--Har button ya input pe ek event listener laga hai, jo user ke click ya input ka intezar karta hai. -->
+
+<!--  Theme Buttons Par Click: updateUIForTheme() function chalti hai aur app ka poora look change ho jaata hai. -->
+
+<!--  Mode Buttons Par Click: cipher-panel ya challenge-panel ko dikhaata/chupaata hai. Agar Challenge mode select kiya, toh startChallenge() function chalti hai. -->
+
+<!-- Cipher Buttons Par Click: updateUIForCipher() function chalti hai aur us cipher ke controls (jaise Caesar ka slider) dikhaata hai. -->
+
+<!--  Encrypt/Decrypt Par Click: applyCipher() function chalti hai. Yeh state se current cipher aur uski settings ko uthaakar input text ko encrypt ya decrypt karti hai. -->
+
+<!--  4. Challenge Mode Ka Khel (Game Logic) -->
+
+<!--  Challenge Mode Start Hone Par: startChallenge() function chalegi. Yeh timer ko 60 seconds par set karti hai, ek random encrypted message banati hai, aur timer chalu kar deti hai. -->
+
+<!--  Hint Button Par Click: Score se 10 points cut hote hain aur ek hint dikhaayi jaati hai. -->
+
+<!--  Submit Button Par Click: Timer ruk jaata hai. User ka answer check hota hai. Agar sahi hai, toh score aur XP badh jaate hain; agar galat hai, toh ek message aata hai. -->
+
+<!-- Timer Zero Hone Par: Challenge fail ho jaata hai. -->
+
+<!--  Restart Button Par Click: startChallenge() function dobara chalti hai, aur naya game shuru hota hai. -->
+
+<!-- ### 5. Final Result -->
+
+<!-- Encryption/Decryption ka final result ciphertext-output textarea mein dikhaai deta hai. -->
+
+<!--  Challenge mode mein, feedback challenge-feedback div mein aata hai. -->
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cipherverse: Your Encrypted World</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --neon-color: #22d3ee; /* a brighter cyan-300 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Dark Matter bg-slate-900 */
+            color: #e2e8f0; /* text-slate-200 */
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+        .neon-text {
+            text-shadow: 0 0 3px var(--neon-color), 0 0 6px var(--neon-color), 0 0 12px var(--neon-color);
+        }
+        .neon-button {
+            transition: all 0.3s ease;
+            box-shadow: 0 0 3px var(--neon-color), 0 0 6px var(--neon-color), 0 0 12px var(--neon-color);
+            background-color: transparent;
+            border-color: var(--neon-color);
+        }
+        .neon-button:hover {
+            box-shadow: 0 0 6px var(--neon-color), 0 0 15px var(--neon-color), 0 0 25px var(--neon-color);
+            background-color: var(--neon-color);
+            color: #0f172a;
+        }
+        .card {
+            background-color: #1e293b; /* bg-slate-800 */
+            border: 1px solid #334155; /* border-slate-700 */
+            border-radius: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px);
+        }
+        .input-glow {
+            transition: all 0.3s ease;
+        }
+        .input-glow:focus {
+            box-shadow: 0 0 0 3px var(--neon-color);
+            outline: none;
+        }
+        .starfield {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.1;
+            z-index: -1;
+            animation: star-move 60s linear infinite;
+        }
+        @keyframes star-move {
+            from { transform: translate(0, 0); }
+            to { transform: translate(50px, 50px); }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200">
+
+    <!-- Starfield Background -->
+    <div class="starfield" id="starfield"></div>
+
+    <div class="min-h-screen flex flex-col items-center p-4 md:p-8 relative z-10">
+
+        <!-- Header -->
+        <header class="w-full max-w-7xl flex flex-col md:flex-row justify-between items-center py-4 mb-8">
+            <h1 class="text-4xl md:text-5xl font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 to-indigo-400 mb-4 md:mb-0">
+                Cipherverse
+            </h1>
+            <div class="flex space-x-2">
+                <button id="theme-darkmatter" class="w-10 h-10 rounded-full bg-slate-800 border-2 border-cyan-300 hover:scale-110 transition-transform"></button>
+                <button id="theme-neoretro" class="w-10 h-10 rounded-full bg-zinc-900 border-2 border-purple-500 hover:scale-110 transition-transform"></button>
+                <button id="theme-forestglitch" class="w-10 h-10 rounded-full bg-green-900 border-2 border-lime-500 hover:scale-110 transition-transform"></button>
+            </div>
+        </header>
+
+        <!-- Main Container -->
+        <main class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Sidebar / Gamification Panel -->
+            <div class="card p-6 col-span-1 flex flex-col space-y-6">
+                <div class="flex items-center space-x-4">
+                    <div class="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center text-4xl neon-text">🕵️</div>
+                    <div>
+                        <p class="text-xs text-slate-400">STATUS: ONLINE</p>
+                        <h2 class="text-2xl font-bold">Welcome, Agent <span id="agent-name-display">Sayeedul</span></h2>
+                    </div>
+                </div>
+
+                <!-- Agent Name Input -->
+                <div class="flex flex-col space-y-2">
+                    <label for="agent-name-input" class="text-sm font-semibold text-slate-400">Update Agent Name:</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="agent-name-input" placeholder="Enter name" class="w-full p-2 bg-slate-800 rounded-lg input-glow text-white">
+                        <button id="set-agent-name-btn" class="px-4 py-2 rounded-lg neon-button text-sm">Set</button>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-700 pt-4">
+                    <p class="text-sm font-semibold text-slate-400">CURRENT MISSION</p>
+                    <p class="text-lg font-bold" id="mission-objective">Explore the ciphers to unlock your first challenge.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 border-t border-slate-700 pt-4">
+                    <div class="p-4 bg-slate-700 rounded-lg text-center">
+                        <p class="text-sm text-slate-400">EXP</p>
+                        <p class="text-2xl font-bold" id="xp-counter">0</p>
+                    </div>
+                    <div class="p-4 bg-slate-700 rounded-lg text-center">
+                        <p class="text-sm text-slate-400">SCORE</p>
+                        <p class="text-2xl font-bold" id="score-counter">0</p>
+                    </div>
+                </div>
+
+                <div class="flex-grow flex flex-col space-y-4">
+                    <h3 class="text-lg font-bold border-b border-slate-700 pb-2">Modes</h3>
+                    <button id="mode-cipher" class="w-full text-left p-4 card hover:bg-slate-700 transition-colors">
+                        <span class="font-bold">Cipher Tool</span>
+                        <p class="text-xs text-slate-400">Encrypt and decrypt messages.</p>
+                    </button>
+                    <button id="mode-challenge" class="w-full text-left p-4 card hover:bg-slate-700 transition-colors">
+                        <span class="font-bold">Challenge Mode</span>
+                        <p class="text-xs text-slate-400">Test your decryption skills against a timer.</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Content Panel -->
+            <div id="cipher-panel" class="card p-6 col-span-1 lg:col-span-2 flex flex-col space-y-6">
+                <!-- Cipher Selector -->
+                <div class="flex justify-between items-center">
+                    <div class="flex space-x-2">
+                        <button id="cipher-caesar" class="px-4 py-2 rounded-full font-semibold neon-button bg-cyan-300 text-slate-900">Caesar</button>
+                        <button id="cipher-vigenere" class="px-4 py-2 rounded-full font-semibold neon-button">Vigenère</button>
+                        <button id="cipher-polybius" class="px-4 py-2 rounded-full font-semibold neon-button">Polybius</button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-slate-400">Chaining:</span>
+                        <button id="cipher-chain-toggle" class="relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-300 bg-slate-600">
+                            <span class="inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-300 translate-x-1"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cipher Controls -->
+                <div id="cipher-controls" class="p-4 bg-slate-700 rounded-xl">
+                    <!-- Caesar Controls -->
+                    <div id="caesar-controls" class="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-4">
+                        <label class="text-slate-400 font-semibold">Shift: <span id="caesar-shift-value" class="neon-text">3</span></label>
+                        <input type="range" id="caesar-shift-slider" min="0" max="25" value="3" class="flex-grow">
+                        <button id="caesar-randomize" class="p-2 card hover:bg-slate-600">🎲 Randomize</button>
+                    </div>
+                    <!-- Vigenère Controls -->
+                    <div id="vigenere-controls" class="hidden">
+                        <label for="vigenere-key" class="block text-slate-400 font-semibold">Keyword:</label>
+                        <input type="text" id="vigenere-key" value="key" class="w-full p-2 mt-1 bg-slate-800 rounded-lg input-glow text-white">
+                    </div>
+                    <!-- Polybius Controls -->
+                    <div id="polybius-controls" class="hidden">
+                        <p class="text-slate-400">The Polybius Square uses a 5x5 grid (I/J combined) to convert letters to coordinates.</p>
+                    </div>
+                </div>
+
+                <!-- Input/Output Textareas -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
+                    <div class="flex flex-col">
+                        <label class="text-slate-400 font-semibold mb-2">Plaintext</label>
+                        <textarea id="plaintext-input" placeholder="Enter your message here..." class="w-full h-40 md:h-full p-4 bg-slate-800 rounded-lg border border-slate-700 input-glow text-white resize-none"></textarea>
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-slate-400 font-semibold mb-2">Ciphertext</label>
+                        <textarea id="ciphertext-output" readonly class="w-full h-40 md:h-full p-4 bg-slate-800 rounded-lg border border-slate-700 text-white resize-none font-mono"></textarea>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap gap-4 justify-center md:justify-start">
+                    <button id="encrypt-btn" class="px-6 py-3 rounded-full neon-button">Encrypt</button>
+                    <button id="decrypt-btn" class="px-6 py-3 rounded-full neon-button">Decrypt</button>
+                    <button id="copy-btn" class="px-6 py-3 rounded-full neon-button">📋 Copy Result</button>
+                    <button id="clear-btn" class="px-6 py-3 rounded-full neon-button">❌ Clear All</button>
+                </div>
+
+                <!-- Educational Panel -->
+                <div id="educational-panel" class="p-4 bg-slate-700 rounded-xl">
+                    <h3 class="text-lg font-bold cursor-pointer flex justify-between items-center" onclick="document.getElementById('info-content').classList.toggle('hidden')">
+                        <span class="neon-text">How it works: Caesar Cipher</span>
+                        <span>▼</span>
+                    </h3>
+                    <div id="info-content" class="mt-2 text-sm text-slate-400 hidden">
+                        <p>The Caesar cipher is a simple substitution cipher where each letter in the plaintext is shifted a certain number of places down or up the alphabet. For example, with a left shift of 3, D would be replaced by A, E would become B, and so on. It is one of the earliest known and simplest ciphers.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Challenge Panel (Initially Hidden) -->
+            <div id="challenge-panel" class="card p-6 col-span-1 lg:col-span-2 hidden flex-col space-y-6">
+                <h2 class="text-3xl font-bold neon-text">Mission: Decrypt</h2>
+                <div class="p-4 bg-slate-700 rounded-xl flex items-center justify-between">
+                    <span class="text-slate-400 font-bold">Time Remaining:</span>
+                    <span id="challenge-timer" class="text-3xl font-mono font-bold neon-text">60s</span>
+                </div>
+                
+                <div class="flex flex-col">
+                    <label class="text-slate-400 font-semibold mb-2">Encrypted Transmission:</label>
+                    <div class="w-full p-4 bg-slate-800 rounded-lg border border-slate-700 font-mono text-lg" id="challenge-ciphertext"></div>
+                </div>
+
+                <div class="flex flex-col">
+                    <label class="text-slate-400 font-semibold mb-2">Your Decryption:</label>
+                    <textarea id="challenge-guess" placeholder="Enter your guess here..." class="w-full h-32 p-4 bg-slate-800 rounded-lg border border-slate-700 input-glow text-white resize-none"></textarea>
+                </div>
+
+                <!-- Hint Section -->
+                <div class="flex items-center space-x-4">
+                    <button id="challenge-hint-btn" class="px-4 py-2 rounded-lg neon-button text-sm">Get Hint (-10 Score)</button>
+                    <p id="challenge-hint-display" class="text-yellow-400 font-semibold italic hidden"></p>
+                </div>
+
+                <div id="challenge-feedback" class="text-center text-lg font-bold p-4 rounded-xl hidden"></div>
+
+                <button id="challenge-submit" class="w-full px-6 py-3 rounded-full neon-button">Submit Decryption</button>
+                <button id="challenge-restart" class="w-full px-6 py-3 rounded-full neon-button hidden bg-slate-600 text-slate-200">Restart Challenge</button>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="w-full max-w-7xl text-center py-8 mt-8 border-t border-slate-700">
+            <p class="text-md font-semibold text-slate-400">Made by <span class="text-xl font-bold neon-text">Sayeed</span> with ❤️</p>
+            <p class="text-sm mt-2">
+                <a href="https://github.com/SAYEEDHERE" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline">GitHub</a> | <a href="https://www.linkedin.com/in/sayeed-here/" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline">LinkedIn</a>
+            </p>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            <!-- Cipherverse App Ka Flowchart (Hinglish Version) -->
+            <!-- Yeh raha aapke Cipherverse app ka poora flow, ek dum aasan bhasha mein. -->
+
+            <!-- ### 1. App Ki Shuruat (Start-up) -->
+            <!-- * Jaise hi web page poori tarah se load hota hai, app shuru ho jaati hai. -->
+            <!-- * Sabse pehle, `init()` function chalti hai. -->
+            <!-- * Yeh function app ki shuruati settings (default theme, default cipher) set karti hai aur background ka starfield animation chalu karti hai. -->
+
+            <!-- ### 2. App Ka Memory Box (Data Store) -->
+            <!-- * Code mein ek `state` object hai, jo app ka saara data yaad rakhta hai. -->
+            <!-- * Isme yeh sab store hota hai: -->
+            <!--     * Current **theme** (`darkMatter`, `neoRetro`, etc.) -->
+            <!--     * Current **mode** (`cipher` ya `challenge`) -->
+            <!--     * Kaunsa **cipher** chuna gaya hai (`caesar`, `vigenere`, etc.) -->
+            <!--     * User ka **score** aur **XP** (experience points) -->
+            <!--     * Challenge mode ka **timer** aur **hint** ki status. -->
+
+            <!-- ### 3. User Ke Actions (Event Listeners) -->
+            <!-- * Har button ya input pe ek event listener laga hai, jo user ke click ya input ka intezar karta hai. -->
+            <!-- * **Theme Buttons Par Click:** `updateUIForTheme()` function chalti hai aur app ka poora look change ho jaata hai. -->
+            <!-- * **Mode Buttons Par Click:** `cipher-panel` ya `challenge-panel` ko dikhaata/chupaata hai. Agar Challenge mode select kiya, toh `startChallenge()` function chalti hai. -->
+            <!-- * **Cipher Buttons Par Click:** `updateUIForCipher()` function chalti hai aur us cipher ke controls (jaise Caesar ka slider) dikhaata hai. -->
+            <!-- * **Encrypt/Decrypt Par Click:** `applyCipher()` function chalti hai. Yeh `state` se current cipher aur uski settings ko uthaakar input text ko encrypt ya decrypt karti hai. -->
+
+            <!-- ### 4. Challenge Mode Ka Khel (Game Logic) -->
+            <!-- * **Challenge Mode Start Hone Par:** `startChallenge()` function chalegi. Yeh timer ko 60 seconds par set karti hai, ek random encrypted message banati hai, aur timer chalu kar deti hai. -->
+            <!-- * **Hint Button Par Click:** Score se 10 points cut hote hain aur ek hint dikhaayi jaati hai. -->
+            <!-- * **Submit Button Par Click:** Timer ruk jaata hai. User ka answer check hota hai. Agar sahi hai, toh score aur XP badh jaate hain; agar galat hai, toh ek message aata hai. -->
+            <!-- * **Timer Zero Hone Par:** Challenge fail ho jaata hai. -->
+            <!-- * **Restart Button Par Click:** `startChallenge()` function dobara chalti hai, aur naya game shuru hota hai. -->
+
+            <!-- ### 5. Final Result -->
+            <!-- * Encryption/Decryption ka final result `ciphertext-output` textarea mein dikhaai deta hai. -->
+            <!-- * Challenge mode mein, feedback `challenge-feedback` div mein aata hai. -->
+
+            // --- State Management ---
+            let state = {
+                currentTheme: 'darkMatter',
+                currentMode: 'cipher',
+                currentCipher: 'caesar',
+                isChaining: false,
+                isChallengeActive: false,
+                challengeInterval: null,
+                challengeTimer: 60,
+                score: 0,
+                xp: 0,
+                hintUsed: false,
+            };
+
+            const THEMES = {
+                darkMatter: {
+                    bg: 'bg-slate-900',
+                    text: 'text-cyan-300',
+                    accent: 'bg-cyan-300',
+                    neon: '#22d3ee',
+                    textLight: 'text-slate-200'
+                },
+                neoRetro: {
+                    bg: 'bg-zinc-900',
+                    text: 'text-purple-400',
+                    accent: 'bg-purple-500',
+                    neon: '#a855f7',
+                    textLight: 'text-zinc-200'
+                },
+                forestGlitch: {
+                    bg: 'bg-green-900',
+                    text: 'text-lime-400',
+                    accent: 'bg-green-500',
+                    neon: '#84cc16',
+                    textLight: 'text-green-200'
+                }
+            };
+            
+            const Ciphers = {
+                caesar: {
+                    title: 'Caesar Cipher',
+                    info: 'The Caesar cipher is a simple substitution cipher where each letter in the plaintext is shifted a certain number of places down or up the alphabet. For example, with a left shift of 3, D would be replaced by A, E would become B, and so on. It is one of the earliest known and simplest ciphers.',
+                    encrypt: (text, shift) => {
+                        return text.split('').map(char => {
+                            if (!char.match(/[a-z]/i)) return char;
+                            const isUpper = char === char.toUpperCase();
+                            const base = isUpper ? 65 : 97;
+                            const code = ((char.charCodeAt(0) - base + shift) % 26 + 26) % 26;
+                            return String.fromCharCode(code + base);
+                        }).join('');
+                    },
+                    decrypt: (text, shift) => Ciphers.caesar.encrypt(text, -shift),
+                },
+                vigenere: {
+                    title: 'Vigenère Cipher',
+                    info: 'The Vigenère cipher is a method of encrypting alphabetic text by using a series of interwoven Caesar ciphers based on the letters of a keyword. It is a form of polyalphabetic substitution.',
+                    encrypt: (text, key) => {
+                        let result = '';
+                        let keyIndex = 0;
+                        for (let i = 0; i < text.length; i++) {
+                            const char = text[i];
+                            if (!char.match(/[a-z]/i)) {
+                                result += char;
+                                continue;
+                            }
+                            const keyChar = key[keyIndex % key.length];
+                            const shift = keyChar.toLowerCase().charCodeAt(0) - 97;
+                            result += Ciphers.caesar.encrypt(char, shift);
+                            keyIndex++;
+                        }
+                        return result;
+                    },
+                    decrypt: (text, key) => {
+                        let result = '';
+                        let keyIndex = 0;
+                        for (let i = 0; i < text.length; i++) {
+                            const char = text[i];
+                            if (!char.match(/[a-z]/i)) {
+                                result += char;
+                                continue;
+                            }
+                            const keyChar = key[keyIndex % key.length];
+                            const shift = keyChar.toLowerCase().charCodeAt(0) - 97;
+                            result += Ciphers.caesar.decrypt(char, shift);
+                            keyIndex++;
+                        }
+                        return result;
+                    }
+                },
+                polybius: {
+                    title: 'Polybius Square',
+                    info: 'The Polybius square is a simple substitution cipher that converts letters into coordinate pairs. Each letter is replaced by its position in the grid (e.g., a=11, b=12). It is a simple and old cipher used for steganography or simple field encryption.',
+                    grid: 'abcdefghiklmnopqrstuvwxyz', // 'j' is merged with 'i'
+                    encrypt: (text) => {
+                        return text.toLowerCase().split('').map(char => {
+                            const index = Ciphers.polybius.grid.indexOf(char === 'j' ? 'i' : char);
+                            if (index === -1) return char;
+                            const row = Math.floor(index / 5) + 1;
+                            const col = (index % 5) + 1;
+                            return `${row}${col}`;
+                        }).join(' ');
+                    },
+                    decrypt: (text) => {
+                        let result = '';
+                        const pairs = text.split(' ').filter(pair => pair.length === 2 && !isNaN(pair));
+                        pairs.forEach(pair => {
+                            const row = parseInt(pair[0], 10) - 1;
+                            const col = parseInt(pair[1], 10) - 1;
+                            const index = (row * 5) + col;
+                            result += Ciphers.polybius.grid[index] || '';
+                        });
+                        return result;
+                    }
+                }
+            };
+
+            // --- DOM Elements ---
+            const body = document.body;
+            const starfield = document.getElementById('starfield');
+            const themeButtons = {
+                darkMatter: document.getElementById('theme-darkmatter'),
+                neoRetro: document.getElementById('theme-neoretro'),
+                forestGlitch: document.getElementById('theme-forestglitch')
+            };
+
+            const cipherModeBtn = document.getElementById('mode-cipher');
+            const challengeModeBtn = document.getElementById('mode-challenge');
+            const cipherPanel = document.getElementById('cipher-panel');
+            const challengePanel = document.getElementById('challenge-panel');
+            const missionObjective = document.getElementById('mission-objective');
+            const xpCounter = document.getElementById('xp-counter');
+            const scoreCounter = document.getElementById('score-counter');
+
+            const agentNameInput = document.getElementById('agent-name-input');
+            const setAgentNameBtn = document.getElementById('set-agent-name-btn');
+            const agentNameDisplay = document.getElementById('agent-name-display');
+
+            const cipherButtons = {
+                caesar: document.getElementById('cipher-caesar'),
+                vigenere: document.getElementById('cipher-vigenere'),
+                polybius: document.getElementById('cipher-polybius')
+            };
+            const cipherControls = document.getElementById('cipher-controls');
+            const caesarControls = document.getElementById('caesar-controls');
+            const vigenereControls = document.getElementById('vigenere-controls');
+            const polybiusControls = document.getElementById('polybius-controls');
+            const caesarShiftSlider = document.getElementById('caesar-shift-slider');
+            const caesarShiftValue = document.getElementById('caesar-shift-value');
+            const caesarRandomizeBtn = document.getElementById('caesar-randomize');
+            const vigenereKeyInput = document.getElementById('vigenere-key');
+            const cipherChainToggle = document.getElementById('cipher-chain-toggle');
+
+            const plaintextInput = document.getElementById('plaintext-input');
+            const ciphertextOutput = document.getElementById('ciphertext-output');
+            const encryptBtn = document.getElementById('encrypt-btn');
+            const decryptBtn = document.getElementById('decrypt-btn');
+            const copyBtn = document.getElementById('copy-btn');
+            const clearBtn = document.getElementById('clear-btn');
+            const educationalPanel = document.getElementById('educational-panel');
+            const infoContent = document.getElementById('info-content');
+
+            const challengeTimerDisplay = document.getElementById('challenge-timer');
+            const challengeCiphertextDisplay = document.getElementById('challenge-ciphertext');
+            const challengeGuessInput = document.getElementById('challenge-guess');
+            const challengeSubmitBtn = document.getElementById('challenge-submit');
+            const challengeRestartBtn = document.getElementById('challenge-restart');
+            const challengeFeedback = document.getElementById('challenge-feedback');
+            const challengeHintBtn = document.getElementById('challenge-hint-btn');
+            const challengeHintDisplay = document.getElementById('challenge-hint-display');
+
+            // --- Utility Functions ---
+            const playSound = (frequency = 440, duration = 0.1, gain = 0.5) => {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.value = frequency;
+                gainNode.gain.setValueAtTime(gain, audioContext.currentTime);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + duration);
+            };
+
+            const updateUIForTheme = (themeName) => {
+                const theme = THEMES[themeName];
+                body.className = `min-h-screen flex flex-col items-center p-4 md:p-8 relative z-10 ${theme.bg} ${theme.textLight}`;
+                document.documentElement.style.setProperty('--neon-color', theme.neon);
+
+                // Update neon buttons
+                document.querySelectorAll('.neon-button').forEach(btn => {
+                    btn.classList.remove('bg-cyan-300', 'bg-purple-500', 'bg-green-500', 'text-slate-900', 'text-zinc-900');
+                    if (btn.id.includes(state.currentCipher)) {
+                        btn.classList.add(theme.accent, `text-${THEMES[state.currentTheme].bg.split('-')[1]}-900`);
+                    } else {
+                         btn.style.borderColor = theme.neon;
+                         btn.style.color = theme.neon;
+                    }
+                });
+
+                // Update theme buttons
+                Object.values(themeButtons).forEach(btn => btn.classList.remove('border-white'));
+                themeButtons[themeName].classList.add('border-white');
+
+                // Update text colors
+                document.querySelectorAll('.neon-text').forEach(el => el.style.color = theme.neon);
+            };
+            
+            const updateUIForCipher = (cipher) => {
+                document.querySelectorAll('#cipher-controls > div').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('.neon-button').forEach(btn => {
+                    btn.classList.remove(THEMES[state.currentTheme].accent, `text-${THEMES[state.currentTheme].bg.split('-')[1]}-900`);
+                    btn.style.borderColor = THEMES[state.currentTheme].neon;
+                    btn.style.color = THEMES[state.currentTheme].neon;
+                });
+                
+                const currentCipherButton = cipherButtons[cipher];
+                if (currentCipherButton) {
+                    currentCipherButton.classList.add(THEMES[state.currentTheme].accent, `text-${THEMES[state.currentTheme].bg.split('-')[1]}-900`);
+                }
+
+                if (cipher === 'caesar') {
+                    caesarControls.classList.remove('hidden');
+                    educationalPanel.querySelector('h3 span').textContent = `How it works: Caesar Cipher`;
+                    infoContent.innerHTML = `<p>${Ciphers.caesar.info}</p>`;
+                } else if (cipher === 'vigenere') {
+                    vigenereControls.classList.remove('hidden');
+                    educationalPanel.querySelector('h3 span').textContent = `How it works: Vigenère Cipher`;
+                    infoContent.innerHTML = `<p>${Ciphers.vigenere.info}</p>`;
+                } else if (cipher === 'polybius') {
+                    polybiusControls.classList.remove('hidden');
+                    educationalPanel.querySelector('h3 span').textContent = `How it works: Polybius Square`;
+                    infoContent.innerHTML = `<p>${Ciphers.polybius.info}</p>`;
+                }
+                
+                // Clear inputs on cipher change for clarity
+                plaintextInput.value = '';
+                ciphertextOutput.value = '';
+            };
+
+            const applyCipher = (direction) => {
+                let text = plaintextInput.value;
+                let result = '';
+
+                if (state.isChaining) {
+                    // Chaining logic (Caesar -> Vigenere)
+                    if (state.currentCipher === 'caesar') {
+                        const caesarShift = parseInt(caesarShiftSlider.value, 10);
+                        const vigenereKey = vigenereKeyInput.value.toLowerCase().replace(/[^a-z]/g, '');
+                        if (direction === 'encrypt') {
+                            const intermediate = Ciphers.caesar.encrypt(text, caesarShift);
+                            result = Ciphers.vigenere.encrypt(intermediate, vigenereKey);
+                        } else {
+                            const intermediate = Ciphers.vigenere.decrypt(text, vigenereKey);
+                            result = Ciphers.caesar.decrypt(intermediate, caesarShift);
+                        }
+                    } else if (state.currentCipher === 'vigenere') {
+                         const caesarShift = parseInt(caesarShiftSlider.value, 10);
+                         const vigenereKey = vigenereKeyInput.value.toLowerCase().replace(/[^a-z]/g, '');
+                         if (direction === 'encrypt') {
+                             const intermediate = Ciphers.vigenere.encrypt(text, vigenereKey);
+                             result = Ciphers.caesar.encrypt(intermediate, caesarShift);
+                         } else {
+                             const intermediate = Ciphers.caesar.decrypt(text, caesarShift);
+                             result = Ciphers.vigenere.decrypt(intermediate, vigenereKey);
+                         }
+                    }
+                } else {
+                    // Single cipher logic
+                    if (state.currentCipher === 'caesar') {
+                        const shift = parseInt(caesarShiftSlider.value, 10);
+                        result = direction === 'encrypt' ? Ciphers.caesar.encrypt(text, shift) : Ciphers.caesar.decrypt(text, shift);
+                    } else if (state.currentCipher === 'vigenere') {
+                        const key = vigenereKeyInput.value.toLowerCase().replace(/[^a-z]/g, '');
+                        result = direction === 'encrypt' ? Ciphers.vigenere.encrypt(text, key) : Ciphers.vigenere.decrypt(text, key);
+                    } else if (state.currentCipher === 'polybius') {
+                        result = direction === 'encrypt' ? Ciphers.polybius.encrypt(text) : Ciphers.polybius.decrypt(text);
+                    }
+                }
+                
+                ciphertextOutput.value = result;
+                playSound(800, 0.05);
+            };
+
+            // --- Event Listeners ---
+            themeButtons.darkMatter.addEventListener('click', () => { state.currentTheme = 'darkMatter'; updateUIForTheme('darkMatter'); });
+            themeButtons.neoRetro.addEventListener('click', () => { state.currentTheme = 'neoRetro'; updateUIForTheme('neoRetro'); });
+            themeButtons.forestGlitch.addEventListener('click', () => { state.currentTheme = 'forestGlitch'; updateUIForTheme('forestGlitch'); });
+
+            cipherModeBtn.addEventListener('click', () => {
+                state.currentMode = 'cipher';
+                cipherPanel.classList.remove('hidden');
+                challengePanel.classList.add('hidden');
+                missionObjective.textContent = 'Explore the ciphers to unlock your first challenge.';
+            });
+            challengeModeBtn.addEventListener('click', () => {
+                state.currentMode = 'challenge';
+                cipherPanel.classList.add('hidden');
+                challengePanel.classList.remove('hidden');
+                missionObjective.textContent = 'Decrypt the transmission before the timer runs out!';
+                if (!state.isChallengeActive) startChallenge();
+            });
+            
+            setAgentNameBtn.addEventListener('click', () => {
+                const newName = agentNameInput.value.trim();
+                if (newName) {
+                    agentNameDisplay.textContent = newName;
+                    playSound(600, 0.05);
+                } else {
+                    agentNameDisplay.textContent = 'Agent';
+                }
+            });
+
+            // Cipher Type Selectors
+            Object.keys(cipherButtons).forEach(cipher => {
+                cipherButtons[cipher].addEventListener('click', () => {
+                    state.currentCipher = cipher;
+                    updateUIForCipher(cipher);
+                });
+            });
+
+            // Caesar Controls
+            caesarShiftSlider.addEventListener('input', (e) => {
+                caesarShiftValue.textContent = e.target.value;
+            });
+            caesarRandomizeBtn.addEventListener('click', () => {
+                const randomShift = Math.floor(Math.random() * 25) + 1;
+                caesarShiftSlider.value = randomShift;
+                caesarShiftValue.textContent = randomShift;
+            });
+
+            // Cipher Chaining
+            cipherChainToggle.addEventListener('click', () => {
+                state.isChaining = !state.isChaining;
+                const toggleBall = cipherChainToggle.querySelector('span');
+                if (state.isChaining) {
+                    cipherChainToggle.classList.remove('bg-slate-600');
+                    cipherChainToggle.classList.add('bg-cyan-300');
+                    toggleBall.classList.remove('translate-x-1');
+                    toggleBall.classList.add('translate-x-6');
+                } else {
+                    cipherChainToggle.classList.remove('bg-cyan-300');
+                    cipherChainToggle.classList.add('bg-slate-600');
+                    toggleBall.classList.remove('translate-x-6');
+                    toggleBall.classList.add('translate-x-1');
+                }
+            });
+
+            // Action Buttons
+            encryptBtn.addEventListener('click', () => applyCipher('encrypt'));
+            decryptBtn.addEventListener('click', () => applyCipher('decrypt'));
+            copyBtn.addEventListener('click', () => {
+                document.execCommand('copy').then(() => {
+                    // Custom message box instead of alert
+                    const messageBox = document.createElement('div');
+                    messageBox.textContent = 'Ciphertext copied to clipboard!';
+                    messageBox.className = 'fixed bottom-4 right-4 bg-green-500 text-white p-3 rounded-lg shadow-lg animate-fade-in-out';
+                    document.body.appendChild(messageBox);
+                    setTimeout(() => messageBox.remove(), 2000);
+                    playSound(600, 0.05);
+                }).catch(err => {
+                    const messageBox = document.createElement('div');
+                    messageBox.textContent = 'Failed to copy text.';
+                    messageBox.className = 'fixed bottom-4 right-4 bg-red-500 text-white p-3 rounded-lg shadow-lg animate-fade-in-out';
+                    document.body.appendChild(messageBox);
+                    setTimeout(() => messageBox.remove(), 2000);
+                });
+            });
+            clearBtn.addEventListener('click', () => {
+                plaintextInput.value = '';
+                ciphertextOutput.value = '';
+                playSound(300, 0.05);
+            });
+            
+            // --- CHALLENGE MODE LOGIC ---
+            // A list of predefined messages for the challenge mode
+            const challengeMessages = [
+                "The quick brown fox jumps over the lazy dog",
+                "Sphinx of black quartz, judge my vow",
+                "Pack my box with five dozen liquor jugs",
+                "How vexingly quick daft zebras jump",
+                "Jaded zombies acted quietly but kept driving their boxy fridges",
+                "Cwm fjord bank glyphs vext quiz"
+            ];
+
+            const startChallenge = () => {
+                // Resetting the challenge state
+                state.isChallengeActive = true;
+                state.challengeTimer = 60;
+                state.hintUsed = false;
+                challengeSubmitBtn.classList.remove('hidden');
+                challengeRestartBtn.classList.add('hidden');
+                challengeFeedback.classList.add('hidden');
+                challengeHintBtn.disabled = false;
+                challengeHintBtn.classList.remove('bg-slate-600', 'text-slate-200');
+                challengeHintDisplay.classList.add('hidden');
+                challengeGuessInput.value = '';
+
+                // NEW: Select a new random message and shift for each game
+                const randomIndex = Math.floor(Math.random() * challengeMessages.length);
+                const challengeText = challengeMessages[randomIndex];
+                const challengeShift = Math.floor(Math.random() * 25) + 1; // Random shift from 1 to 25
+                
+                // Store the correct answer and shift for checking later
+                state.challengeCorrectText = challengeText;
+                state.challengeShift = challengeShift;
+
+                const encryptedText = Ciphers.caesar.encrypt(challengeText, challengeShift);
+                challengeCiphertextDisplay.textContent = encryptedText;
+
+                challengeTimerDisplay.textContent = `${state.challengeTimer}s`;
+                clearInterval(state.challengeInterval); // Clear any existing timer
+                state.challengeInterval = setInterval(() => {
+                    state.challengeTimer--;
+                    challengeTimerDisplay.textContent = `${state.challengeTimer}s`;
+                    if (state.challengeTimer <= 0) {
+                        clearInterval(state.challengeInterval);
+                        state.isChallengeActive = false;
+                        challengeFeedback.textContent = 'Time\'s up! Mission Failed.';
+                        challengeFeedback.className = 'text-center text-lg font-bold p-4 rounded-xl text-white bg-red-500';
+                        challengeFeedback.classList.remove('hidden');
+                        challengeSubmitBtn.classList.add('hidden');
+                        challengeRestartBtn.classList.remove('hidden');
+                        playSound(150, 0.2);
+                    }
+                }, 1000);
+            };
+
+            challengeHintBtn.addEventListener('click', () => {
+                if (!state.hintUsed) {
+                    state.score = Math.max(0, state.score - 10);
+                    scoreCounter.textContent = state.score;
+                    challengeHintDisplay.textContent = `Hint: The cipher is a Caesar Cipher with a shift of ${state.challengeShift}.`;
+                    challengeHintDisplay.classList.remove('hidden');
+                    challengeHintBtn.disabled = true;
+                    challengeHintBtn.classList.add('bg-slate-600', 'text-slate-200');
+                    state.hintUsed = true;
+                    playSound(400, 0.1);
+                }
+            });
+
+            challengeSubmitBtn.addEventListener('click', () => {
+                const userGuess = challengeGuessInput.value.trim();
+                clearInterval(state.challengeInterval);
+                state.isChallengeActive = false;
+
+                if (userGuess.toLowerCase() === state.challengeCorrectText.toLowerCase()) {
+                    challengeFeedback.textContent = 'Success! Mission Complete.';
+                    challengeFeedback.className = 'text-center text-lg font-bold p-4 rounded-xl text-white bg-green-500';
+                    state.score += 100;
+                    state.xp += 50;
+                    scoreCounter.textContent = state.score;
+                    xpCounter.textContent = state.xp;
+                    playSound(1000, 0.1);
+                } else {
+                    challengeFeedback.textContent = 'Incorrect. Try again, agent.';
+                    challengeFeedback.className = 'text-center text-lg font-bold p-4 rounded-xl text-white bg-yellow-500';
+                    playSound(200, 0.1);
+                }
+                challengeFeedback.classList.remove('hidden');
+                challengeSubmitBtn.classList.add('hidden');
+                challengeRestartBtn.classList.remove('hidden');
+            });
+            
+            challengeRestartBtn.addEventListener('click', () => {
+                startChallenge(); // Now this will start a new game with a new message
+            });
+
+            // --- Initial Setup ---
+            const init = () => {
+                updateUIForTheme(state.currentTheme);
+                updateUIForCipher(state.currentCipher);
+
+                // Starfield canvas animation
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = starfield.offsetWidth;
+                canvas.height = starfield.offsetHeight;
+                starfield.appendChild(canvas);
+
+                const stars = [];
+                const numStars = 200;
+                for (let i = 0; i < numStars; i++) {
+                    stars.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        radius: Math.random() * 1.5,
+                        opacity: Math.random()
+                    });
+                }
+                
+                const animateStars = () => {
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    stars.forEach(star => {
+                        context.beginPath();
+                        context.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                        context.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+                        context.fill();
+                        star.x += 0.05;
+                        star.y += 0.05;
+                        if (star.x > canvas.width) star.x = 0;
+                        if (star.y > canvas.height) star.y = 0;
+                    });
+                    requestAnimationFrame(animateStars);
+                };
+
+                animateStars();
+            };
+
+            init();
+        });
+    </script>
+</body>
+</html>
